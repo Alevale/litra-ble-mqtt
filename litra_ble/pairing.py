@@ -134,6 +134,28 @@ def pair(address: str, scan_seconds: float = 8.0) -> bool:
     return ok
 
 
+def scan_for_litras(scan_seconds: float = 8.0) -> list[tuple[str, str]]:
+    """Active-scan BLE and return [(address, name), ...] for Litra devices.
+
+    Surfaces both already-known and newly-advertising devices whose name
+    contains "litra" (so a light in pairing mode is found without its MAC).
+    """
+    if not available():
+        return []
+    s = _Session()
+    s.send("power on", 1.0)
+    s.send("scan le", scan_seconds)
+    s.send("scan off", 0.3)
+    s.close()
+
+    found: dict[str, str] = {}
+    for line in _oneshot("devices").splitlines():
+        parts = line.strip().split(" ", 2)
+        if len(parts) == 3 and parts[0] == "Device" and "litra" in parts[2].lower():
+            found[parts[1].upper()] = parts[2]
+    return list(found.items())
+
+
 def ensure_paired(addresses: list[str], scan_seconds: float = 8.0) -> dict[str, bool]:
     """Ensure every address is paired+trusted+connected. Returns {addr: ok}."""
     if not available():

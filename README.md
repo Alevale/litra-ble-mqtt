@@ -59,19 +59,12 @@ If Home Assistant runs on a machine with Bluetooth in range of the lights:
 
 1. **Settings → Add-ons → Add-on Store → ⋮ → Repositories**, add this repo's URL.
 2. Install **Litra Beam LX Bridge**, turn **Protection mode off** (Info tab).
-3. In **Configuration**, list your lights by Bluetooth address (see DOCS for how
-   to find them), e.g.:
-   ```yaml
-   lights:
-     - address: "FE:FA:09:E1:ED:F4"
-       name: "Office Litra"
-       model: "beam_lx"
-     - address: "C1:AB:00:11:22:33"
-       name: "Desk Litra"
-       model: "beam_lx"
-   ```
-4. Start it. The lights appear in Home Assistant automatically. MQTT credentials
-   are provided by the Supervisor — you don't configure a broker by hand.
+3. Put each light in pairing mode (Bluetooth button on the back) and **Start** the
+   add-on. It auto-discovers and pairs them — **no addresses to type** — and they
+   appear in Home Assistant automatically, model detected per light. MQTT
+   credentials are provided by the Supervisor; you don't configure a broker.
+
+   (Optional: pin fixed names/models by listing lights — see DOCS.)
 
 Full details: [`litra_beam_lx/DOCS.md`](litra_beam_lx/DOCS.md).
 

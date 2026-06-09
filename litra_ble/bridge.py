@@ -34,6 +34,7 @@ from litra_ble.device import (
     TEMP_MIN,
     LitraError,
     LitraLight,
+    list_litras,
 )
 
 log = logging.getLogger("litra-mqtt")
@@ -249,10 +250,9 @@ class Bridge:
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.lights = [
-            LightBridge(lc, cfg.discovery_prefix, self.BRIDGE_STATUS)
-            for lc in cfg.lights
-        ]
+        # Populated in run() after discovery/pairing (auto-discovery may add
+        # lights that weren't in the static config).
+        self.lights: list[LightBridge] = []
         self.client = _make_client("litra-mqtt")
         # LWT: if the bridge dies, every light's entity goes unavailable
         # (each entity requires this topic == "online", see _availability()).
@@ -304,15 +304,77 @@ class Bridge:
                 if self.cfg.state_readback:
                     lb.refresh_from_device(self.client)
 
+    @staticmethod
+    def _norm(addr: str | None) -> str:
+        return addr.replace(":", "").lower() if addr else ""
+
+    @staticmethod
+    def _colonize(norm: str) -> str:
+        return ":".join(norm[i:i + 2] for i in range(0, len(norm), 2)).upper()
+
+    def _resolve_light_cfgs(self) -> list[LightCfg]:
+        """Determine which lights to bridge: configured + auto-discovered.
+
+        Auto-discovery scans BLE for advertising "Litra" devices, pairs anything
+        new, then enumerates every bonded Litra (model detected from its product
+        id). Explicit configured lights keep their name/model and are always
+        included (even if currently absent, so they show up as unavailable).
+        """
+        configured = {self._norm(lc.address): lc
+                      for lc in self.cfg.lights if lc.address}
+
+        discovered: dict[str, tuple[str, str]] = {}
+        if self.cfg.auto_discover:
+            log.info("scanning for Litra lights...")
+            for addr, name in pairing.scan_for_litras(self.cfg.scan_seconds):
+                discovered[self._norm(addr)] = (addr, name)
+            if discovered:
+                log.info("discovered: %s",
+                         ", ".join(n for _, n in discovered.values()))
+
+        to_pair = [lc.address for lc in configured.values()]
+        to_pair += [addr for na, (addr, _) in discovered.items()
+                    if na not in configured]
+        if (self.cfg.pair_on_start or self.cfg.auto_discover) and to_pair:
+            log.info("pairing %d light(s)...", len(to_pair))
+            pairing.ensure_paired(to_pair, scan_seconds=self.cfg.scan_seconds)
+
+        result: list[LightCfg] = []
+        seen: set[str] = set()
+        for info in list_litras():            # every bonded Litra now visible
+            na = info["address"]
+            if not na:
+                continue
+            seen.add(na)
+            if na in configured:
+                result.append(configured[na])
+            else:
+                name = discovered.get(na, (None, info["name"]))[1] or info["name"]
+                result.append(LightCfg(
+                    address=self._colonize(na),
+                    name=f"{name} ({na[-4:].upper()})",  # disambiguate same-model
+                    model=info["model"],
+                ))
+        # configured lights not currently present -> still expose (unavailable)
+        for na, lc in configured.items():
+            if na not in seen:
+                result.append(lc)
+        return result
+
     def run(self):
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, lambda *_: self._stop.set())
 
-        if self.cfg.pair_on_start:
-            addrs = [lb.dev.address for lb in self.lights if lb.dev.address]
-            if addrs:
-                log.info("pairing %d configured light(s)...", len(addrs))
-                pairing.ensure_paired(addrs, scan_seconds=self.cfg.scan_seconds)
+        self.lights = [
+            LightBridge(lc, self.cfg.discovery_prefix, self.BRIDGE_STATUS)
+            for lc in self._resolve_light_cfgs()
+        ]
+        if not self.lights:
+            log.error("no lights found. Put a Litra in pairing mode and restart, "
+                      "or set addresses in the configuration.")
+            return
+        log.info("bridging %d light(s): %s", len(self.lights),
+                 ", ".join(lb.dev.name for lb in self.lights))
 
         # Retry the initial connect: on a host/HAOS reboot the broker may not be
         # accepting connections yet. paho only auto-reconnects AFTER the first
@@ -348,8 +410,9 @@ def main() -> int:
         level=getattr(logging, cfg.log_level, logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    if not cfg.lights:
-        log.error("no lights to bridge; set options.lights or LITRA_* env")
+    if not cfg.lights and not cfg.auto_discover:
+        log.error("no lights configured and auto-discovery is off; "
+                  "set options.lights or enable auto_discover")
         return 1
     Bridge(cfg).run()
     return 0

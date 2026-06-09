@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- **Auto-discovery**: with `auto_discover` on (default), the add-on scans for
+  Litra lights in pairing mode, bonds them, and exposes every connected Litra
+  with its model detected automatically — no need to find or type MAC addresses.
+- The `lights` list is now optional (use it only to pin names/models or to
+  control exactly which lights are exposed).
+
 ## 0.2.0
 
 - Initial add-on release.

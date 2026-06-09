@@ -1,5 +1,5 @@
 name: Litra Beam LX Bridge
-version: "0.2.0"
+version: "0.3.0"
 slug: litra_beam_lx
 description: Control Logitech Litra lights (Beam LX, Beam, Glow) over Bluetooth from Home Assistant
 url: https://github.com/Alevale/litra-ble-mqtt/tree/main/litra_beam_lx
@@ -26,10 +26,8 @@ services:
   - mqtt:need
 
 options:
-  lights:
-    - address: ""
-      name: "Litra Beam LX"
-      model: "beam_lx"
+  auto_discover: true
+  lights: []
   pair_on_start: true
   state_readback: false
   scan_seconds: 8
@@ -37,10 +35,14 @@ options:
   log_level: info
 
 schema:
+  # With auto_discover on (default), just put each Litra in pairing mode and
+  # start - no addresses needed. Use `lights` only to pin names/models or to
+  # control specific lights when auto-discovery isn't wanted.
+  auto_discover: bool
   lights:
-    - address: str
-      name: str
-      model: "list(beam_lx|beam|glow)"
+    - address: str?
+      name: str?
+      model: "list(beam_lx|beam|glow)?"
   pair_on_start: bool
   state_readback: bool
   scan_seconds: int(2,30)

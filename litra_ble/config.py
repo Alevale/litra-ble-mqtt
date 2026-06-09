@@ -50,6 +50,7 @@ class Config:
     state_readback: bool = False
     presence_interval: float = 5.0
     pair_on_start: bool = True
+    auto_discover: bool = True
     scan_seconds: float = 8.0
     log_level: str = "INFO"
 
@@ -77,6 +78,7 @@ def _from_addon(options: dict) -> Config:
     cfg.presence_interval = float(options.get("presence_interval", 5))
     cfg.scan_seconds = float(options.get("scan_seconds", 8))
     cfg.pair_on_start = bool(options.get("pair_on_start", True))
+    cfg.auto_discover = bool(options.get("auto_discover", True))
     cfg.log_level = (options.get("log_level") or "info").upper()
 
     cfg.lights = []
@@ -141,6 +143,7 @@ def _from_env() -> Config:
         state_readback=env("LITRA_STATE_READBACK", "0") == "1",
         presence_interval=float(env("LITRA_PRESENCE_INTERVAL", "5")),
         pair_on_start=env("LITRA_PAIR_ON_START", "0") == "1",
+        auto_discover=env("LITRA_AUTO_DISCOVER", "0") == "1",
         scan_seconds=float(env("LITRA_SCAN_SECONDS", "8")),
         log_level=env("LITRA_LOG_LEVEL", "INFO").upper(),
     )
