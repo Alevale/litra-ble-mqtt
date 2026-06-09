@@ -1,0 +1,9 @@
+# Base images for each architecture. These are Home Assistant's Python base
+# images (Alpine-based, with s6-overlay + bashio). Bump the tag if a build fails
+# because the tag has been retired.
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+  armv7: ghcr.io/home-assistant/armv7-base-python:3.12-alpine3.20
+labels:
+  org.opencontainers.image.source: https://github.com/alexvales/litra-ble-mqtt

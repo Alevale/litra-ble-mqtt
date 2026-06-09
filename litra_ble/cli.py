@@ -1,5 +1,6 @@
-"""Command-line control of the Litra Beam LX.
+"""Command-line control of Litra lights.
 
+    litra list                          # show connected lights + addresses
     litra on | off | toggle | blink
     litra brightness <0-100>            # front, percent
     litra lumen <30-400>                # front, raw lumens
@@ -10,6 +11,10 @@
     litra back-color <R> <G> <B> [zone] # 0-255 each; zone 1-7, default all
     litra raw <hexbytes>                # e.g. 11ff061c01
 
+Target a specific light (when several are connected):
+    litra -a <ADDRESS> [-m <model>] <command>
+Models: beam_lx (default), beam, glow.
+
 Requires write access to /dev/hidraw* (install the udev rule, or use sudo).
 """
 from __future__ import annotations
@@ -17,7 +22,7 @@ from __future__ import annotations
 import sys
 import time
 
-from litra_ble.device import LitraBeamLX, LitraError
+from litra_ble.device import DEFAULT_MODEL, LitraError, LitraLight, list_litras
 
 
 def _need(args, n, usage):
@@ -27,11 +32,36 @@ def _need(args, n, usage):
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+
+    # Optional light selector: -a/--address ADDR  -m/--model MODEL
+    address, model = None, DEFAULT_MODEL
+    while argv and argv[0] in ("-a", "--address", "-m", "--model"):
+        flag = argv.pop(0)
+        if not argv:
+            sys.exit(f"{flag} needs a value")
+        value = argv.pop(0)
+        if flag in ("-a", "--address"):
+            address = value
+        else:
+            model = value
+
     if not argv:
         sys.exit(__doc__)
 
     cmd, rest = argv[0], argv[1:]
-    dev = LitraBeamLX()
+
+    if cmd == "list":
+        lights = list_litras()
+        if not lights:
+            print("no Litra lights connected")
+            return 1
+        for info in lights:
+            addr = ":".join(info["address"][i:i + 2]
+                            for i in range(0, len(info["address"]), 2)).upper()
+            print(f"{addr or '?'}  {info['name']}  ({info['path']})")
+        return 0
+
+    dev = LitraLight(address=address, model=model)
 
     try:
         if cmd == "on":

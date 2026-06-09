@@ -4,8 +4,19 @@ to Home Assistant via MQTT."""
 from litra_ble.device import (
     LitraBeamLX,
     LitraError,
+    LitraLight,
     LitraNotFound,
+    LitraUnsupported,
+    list_litras,
 )
 
-__version__ = "0.1.0"
-__all__ = ["LitraBeamLX", "LitraError", "LitraNotFound", "__version__"]
+__version__ = "0.2.0"
+__all__ = [
+    "LitraLight",
+    "LitraBeamLX",
+    "LitraError",
+    "LitraNotFound",
+    "LitraUnsupported",
+    "list_litras",
+    "__version__",
+]

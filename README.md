@@ -1,12 +1,17 @@
 # Litra Beam LX → Home Assistant (over Bluetooth, via MQTT)
 
-Control a **Logitech Litra Beam LX** from Home Assistant — including over
+Control **Logitech Litra** lights from Home Assistant — including over
 **Bluetooth**, which Logitech's own software and every existing open-source
-Litra tool don't support. Exposes the front light (on/off, brightness, colour
-temperature) **and** the 7-zone back RGB strip as native Home Assistant lights.
+Litra tool don't support. Exposes the Beam LX front light (on/off, brightness,
+colour temperature) **and** its 7-zone back RGB strip as native Home Assistant
+lights. **Multiple lights** are supported — list as many as you like.
 
-No cloud, no Logi software, no custom Home Assistant integration to maintain —
-just a small MQTT bridge running on the machine the light is paired to.
+No cloud, no Logi software, no custom Home Assistant integration to maintain.
+Run it two ways:
+
+- **As a Home Assistant add-on** (easiest — broker credentials auto-configured).
+  See [`litra_beam_lx/DOCS.md`](litra_beam_lx/DOCS.md).
+- **As a standalone MQTT bridge** (systemd) on any Linux box near the lights.
 
 ```
 ┌─────────────┐   Bluetooth-HID    ┌──────────────────┐    MQTT     ┌────────────────┐
@@ -48,7 +53,31 @@ that protocol, but only over **USB**. This project reuses the same protocol over
   Home Assistant, the **Mosquitto broker add-on** is the easy choice.
 - Home Assistant with the **MQTT integration** enabled.
 
-## Setup
+## Install as a Home Assistant add-on (recommended)
+
+If Home Assistant runs on a machine with Bluetooth in range of the lights:
+
+1. **Settings → Add-ons → Add-on Store → ⋮ → Repositories**, add this repo's URL.
+2. Install **Litra Beam LX Bridge**, turn **Protection mode off** (Info tab).
+3. In **Configuration**, list your lights by Bluetooth address (see DOCS for how
+   to find them), e.g.:
+   ```yaml
+   lights:
+     - address: "FE:FA:09:E1:ED:F4"
+       name: "Office Litra"
+       model: "beam_lx"
+     - address: "C1:AB:00:11:22:33"
+       name: "Desk Litra"
+       model: "beam_lx"
+   ```
+4. Start it. The lights appear in Home Assistant automatically. MQTT credentials
+   are provided by the Supervisor — you don't configure a broker by hand.
+
+Full details: [`litra_beam_lx/DOCS.md`](litra_beam_lx/DOCS.md).
+
+## Standalone setup (systemd)
+
+Use this when the lights are on a different machine than Home Assistant.
 
 ### 1. Pair the light over Bluetooth (one time)
 
