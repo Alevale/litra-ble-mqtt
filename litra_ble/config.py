@@ -51,7 +51,7 @@ class Config:
     presence_interval: float = 5.0
     pair_on_start: bool = True
     auto_discover: bool = True
-    scan_seconds: float = 8.0
+    scan_seconds: float = 20.0
     log_level: str = "INFO"
 
 
@@ -76,7 +76,7 @@ def _from_addon(options: dict) -> Config:
     cfg.discovery_prefix = options.get("discovery_prefix") or "homeassistant"
     cfg.state_readback = bool(options.get("state_readback", False))
     cfg.presence_interval = float(options.get("presence_interval", 5))
-    cfg.scan_seconds = float(options.get("scan_seconds", 8))
+    cfg.scan_seconds = float(options.get("scan_seconds", 20))
     cfg.pair_on_start = bool(options.get("pair_on_start", True))
     cfg.auto_discover = bool(options.get("auto_discover", True))
     cfg.log_level = (options.get("log_level") or "info").upper()
@@ -144,7 +144,7 @@ def _from_env() -> Config:
         presence_interval=float(env("LITRA_PRESENCE_INTERVAL", "5")),
         pair_on_start=env("LITRA_PAIR_ON_START", "0") == "1",
         auto_discover=env("LITRA_AUTO_DISCOVER", "0") == "1",
-        scan_seconds=float(env("LITRA_SCAN_SECONDS", "8")),
+        scan_seconds=float(env("LITRA_SCAN_SECONDS", "20")),
         log_level=env("LITRA_LOG_LEVEL", "INFO").upper(),
     )
 

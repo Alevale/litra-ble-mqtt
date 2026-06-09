@@ -100,38 +100,59 @@ class _Session:
         return "".join(self.lines)
 
 
-def pair(address: str, scan_seconds: float = 8.0) -> bool:
-    """Pair + trust + connect a single address. Returns True on success."""
+def _interesting(transcript: str) -> str:
+    """Pull the lines worth showing from a bluetoothctl transcript."""
+    keep = []
+    for line in transcript.splitlines():
+        low = line.lower()
+        if any(k in low for k in ("pair", "fail", "agent", "device ", "connect",
+                                  "error", "not available", "authentic")):
+            keep.append(line.strip())
+    return "\n".join(keep[-25:]) or transcript[-800:]
+
+
+def pair(address: str, scan_seconds: float = 20.0, attempts: int = 2) -> bool:
+    """Pair + trust + connect a single address. Returns True on success.
+
+    Keeps the LE scan running *through* the pairing attempt (turning it off
+    first can drop the device from BlueZ's cache so the bond can't connect), and
+    retries a couple of times because BLE bonding over a rotating random address
+    is flaky. On failure the bluetoothctl transcript is logged so the cause
+    (AuthenticationFailed, agent issue, out of range, ...) is visible.
+    """
     power_on()
 
     if is_paired(address):
-        # Already bonded: make sure it's trusted (auto-reconnect) and connected.
         _oneshot("trust", address)
         _oneshot("connect", address)
         log.info("%s already paired; ensured trusted + connected", address)
         return True
 
-    log.info("pairing %s (scanning up to %.0fs)...", address, scan_seconds)
-    s = _Session()
-    s.send("power on", 1.0)
-    s.send("agent NoInputNoOutput", 0.5)
-    s.send("default-agent", 0.5)
-    s.send("scan le", scan_seconds)   # let advertisements come in
-    s.send("scan off", 0.5)
-    s.send(f"pair {address}", 6.0)
-    s.send(f"trust {address}", 1.0)
-    s.send(f"connect {address}", 4.0)
-    out = s.close()
+    for attempt in range(1, attempts + 1):
+        log.info("pairing %s (attempt %d/%d, scanning up to %.0fs)...",
+                 address, attempt, attempts, scan_seconds)
+        s = _Session()
+        s.send("power on", 1.0)
+        s.send("agent NoInputNoOutput", 0.5)
+        s.send("default-agent", 0.5)
+        s.send("scan le", scan_seconds)          # discover...
+        s.send(f"pair {address}", 12.0)          # ...and pair while still scanning
+        s.send(f"trust {address}", 1.0)
+        s.send(f"connect {address}", 5.0)
+        s.send("scan off", 0.5)
+        out = s.close()
 
-    ok = ("Pairing successful" in out) or is_paired(address)
-    if ok:
-        _oneshot("trust", address)
-        log.info("paired %s", address)
-    else:
-        log.warning("failed to pair %s; is it in pairing mode and in range?",
-                    address)
-        log.debug("bluetoothctl transcript:\n%s", out)
-    return ok
+        if ("Pairing successful" in out) or is_paired(address):
+            _oneshot("trust", address)
+            log.info("paired %s", address)
+            return True
+        log.warning("pair attempt %d/%d for %s did not complete",
+                    attempt, attempts, address)
+        log.warning("bluetoothctl said:\n%s", _interesting(out))
+
+    log.warning("failed to pair %s; make sure it is blinking (pairing mode) "
+                "and in range, then restart the add-on", address)
+    return False
 
 
 def scan_for_litras(scan_seconds: float = 8.0) -> list[tuple[str, str]]:

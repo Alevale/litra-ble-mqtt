@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1
+
+- More reliable pairing: keep the BLE scan running *through* the pair attempt
+  (turning it off first could drop the device and fail the bond), retry a
+  couple of times, and longer waits — BLE bonding over a rotating random
+  address is flaky.
+- Default scan time raised 8s → 20s (configurable up to 60s).
+- On a failed pairing, the relevant `bluetoothctl` output is now logged so the
+  cause (e.g. AuthenticationFailed, out of range) is visible.
+
 ## 0.3.0
 
 - **Auto-discovery**: with `auto_discover` on (default), the add-on scans for
