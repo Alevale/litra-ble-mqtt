@@ -123,8 +123,9 @@ def _status(dev: LitraBeamLX) -> int:
     print(f"  front power:       {fmt(dev.get_front_power())}")
     print(f"  front brightness:  {fmt(dev.get_front_brightness_lumen(), ' lm')}")
     print(f"  front temperature: {fmt(dev.get_front_temperature(), ' K')}")
-    print(f"  back power:        {fmt(dev.get_back_power())}")
-    print(f"  back brightness:   {fmt(dev.get_back_brightness_pct(), ' %')}")
+    if dev.has_back:
+        print(f"  back power:        {fmt(dev.get_back_power())}")
+        print(f"  back brightness:   {fmt(dev.get_back_brightness_pct(), ' %')}")
     return 0
 
 

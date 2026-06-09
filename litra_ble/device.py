@@ -28,11 +28,19 @@ from __future__ import annotations
 import glob
 import os
 import select
+import threading
 import time
 
 VENDOR_ID = 0x046D
-# Known Litra product ids (USB and, where applicable, BLE).
-PRODUCT_IDS = (0xB903, 0xC903, 0xC900, 0xC901)
+# Known Litra product ids mapped to their protocol model. USB ids per the litra
+# projects; 0xB903 is the Beam LX over Bluetooth.
+PRODUCT_PROFILES = {
+    0xB903: "beam_lx",  # Beam LX (BLE)
+    0xC903: "beam_lx",  # Beam LX (USB)
+    0xC901: "beam",     # Litra Beam (USB)
+    0xC900: "glow",     # Litra Glow (USB)
+}
+PRODUCT_IDS = tuple(PRODUCT_PROFILES)
 
 # Per-model protocol profile. The big difference between models is the front
 # light's feature index (0x06 on the Beam LX, 0x04 on the older Beam/Glow) and
@@ -106,11 +114,12 @@ def list_litras() -> list[dict]:
             continue
         if not any(f"{pid:04X}" in hid_id for pid in PRODUCT_IDS):
             continue
+        product = next((pid for pid in PRODUCT_IDS if f"{pid:04X}" in hid_id), 0)
         found.append({
             "path": f"/dev/{name}",
             "address": _norm_addr(_uevent_field(uevent, "HID_UNIQ")) or "",
-            "product": next((pid for pid in PRODUCT_IDS
-                             if f"{pid:04X}" in hid_id), 0),
+            "product": product,
+            "model": PRODUCT_PROFILES.get(product, DEFAULT_MODEL),
             "name": _uevent_field(uevent, "HID_NAME") or "Litra",
         })
     return found
@@ -132,6 +141,10 @@ class LitraLight:
         self.model = model
         self.name = name or (f"Litra {address}" if address else "Litra")
         self._profile = PROFILES[model]
+        # Serialise device I/O so a state-readback poll can't interleave with a
+        # command write on the same hidraw node. Reentrant so multi-write
+        # operations (back_color) can hold it across their internal writes.
+        self._io_lock = threading.RLock()
 
     # -- discovery ------------------------------------------------------------
 
@@ -160,17 +173,18 @@ class LitraLight:
         return bool(self._profile["has_back"])
 
     def unique_suffix(self) -> str:
-        """Stable id for MQTT unique_ids, derived from the address."""
+        """Stable id for MQTT unique_ids, derived from the full address.
+
+        Uses the whole 12-hex MAC (not just the tail) so two lights whose
+        addresses share their last bytes can't collide into one HA device.
+        """
         addr = _norm_addr(self.address)
-        if addr:
-            return addr[-6:]
-        path = self.find_hidraw()
-        if path:
-            addr = _norm_addr(_uevent_field(_read_uevent(os.path.basename(path)),
-                                            "HID_UNIQ"))
-            if addr:
-                return addr[-6:]
-        return "beamlx"
+        if not addr:
+            path = self.find_hidraw()
+            if path:
+                addr = _norm_addr(_uevent_field(
+                    _read_uevent(os.path.basename(path)), "HID_UNIQ"))
+        return addr or "unknown"
 
     # -- raw I/O --------------------------------------------------------------
 
@@ -182,43 +196,56 @@ class LitraLight:
         return data + bytes(REPORT_LEN - len(data))
 
     def _write(self, *payload: int) -> None:
-        path = self.resolve_path()
-        try:
-            fd = os.open(path, os.O_WRONLY)
-        except PermissionError as e:
-            raise LitraError(
-                f"permission denied opening {path}; install the udev rule or "
-                f"run as root ({e})"
-            ) from e
-        try:
-            os.write(fd, self._report(*payload))
-        except OSError as e:
-            raise LitraError(f"write to {path} failed: {e}") from e
-        finally:
-            os.close(fd)
+        with self._io_lock:
+            path = self.resolve_path()
+            try:
+                fd = os.open(path, os.O_WRONLY)
+            except PermissionError as e:
+                raise LitraError(
+                    f"permission denied opening {path}; install the udev rule "
+                    f"or run as root ({e})"
+                ) from e
+            except OSError as e:
+                # Node vanished between resolve and open (light slept/dropped).
+                raise LitraError(f"could not open {path}: {e}") from e
+            try:
+                os.write(fd, self._report(*payload))
+            except OSError as e:
+                raise LitraError(f"write to {path} failed: {e}") from e
+            finally:
+                os.close(fd)
 
     def _query(self, *payload: int, timeout: float = 0.5) -> bytes | None:
-        path = self.resolve_path()
         want_feature = payload[2] if len(payload) > 2 else None
-        fd = os.open(path, os.O_RDWR | os.O_NONBLOCK)
-        try:
-            os.write(fd, self._report(*payload))
-            deadline = time.monotonic() + timeout
-            while time.monotonic() < deadline:
-                r, _, _ = select.select([fd], [], [], deadline - time.monotonic())
-                if not r:
-                    break
-                try:
-                    resp = os.read(fd, 64)
-                except BlockingIOError:
-                    continue
-                if len(resp) >= 4 and resp[0] == 0x11 and (
-                    want_feature is None or resp[2] == want_feature
-                ):
-                    return bytes(resp[:REPORT_LEN].ljust(REPORT_LEN, b"\x00"))
-            return None
-        finally:
-            os.close(fd)
+        want_function = payload[3] if len(payload) > 3 else None
+        with self._io_lock:
+            path = self.resolve_path()
+            try:
+                fd = os.open(path, os.O_RDWR | os.O_NONBLOCK)
+            except OSError as e:
+                raise LitraError(f"could not open {path}: {e}") from e
+            try:
+                os.write(fd, self._report(*payload))
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    r, _, _ = select.select([fd], [], [],
+                                            deadline - time.monotonic())
+                    if not r:
+                        break
+                    try:
+                        resp = os.read(fd, 64)
+                    except BlockingIOError:
+                        continue
+                    # Match the report id, feature index AND the echoed function
+                    # byte, so an unsolicited notification (or a different query
+                    # sharing the same feature) isn't mistaken for this answer.
+                    if (len(resp) >= 4 and resp[0] == 0x11
+                            and (want_feature is None or resp[2] == want_feature)
+                            and (want_function is None or resp[3] == want_function)):
+                        return bytes(resp[:REPORT_LEN].ljust(REPORT_LEN, b"\x00"))
+                return None
+            finally:
+                os.close(fd)
 
     # -- front light ----------------------------------------------------------
 

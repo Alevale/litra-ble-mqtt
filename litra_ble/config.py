@@ -79,14 +79,21 @@ def _from_addon(options: dict) -> Config:
     cfg.pair_on_start = bool(options.get("pair_on_start", True))
     cfg.log_level = (options.get("log_level") or "info").upper()
 
-    cfg.lights = [
-        LightCfg(
-            address=(light.get("address") or "").strip() or None,
-            name=light.get("name") or f"Litra {light.get('address', '')}",
+    cfg.lights = []
+    for light in options.get("lights", []):
+        addr = (light.get("address") or "").strip()
+        if not addr:
+            # In add-on mode an address is required to target a specific light;
+            # an empty one would silently grab "the first Litra" and collide
+            # with any other empty entry. Skip it loudly instead.
+            log.warning("ignoring a light with no 'address' set - fill in its "
+                        "Bluetooth MAC in the add-on configuration")
+            continue
+        cfg.lights.append(LightCfg(
+            address=addr,
+            name=light.get("name") or f"Litra {addr}",
             model=light.get("model") or DEFAULT_MODEL,
-        ).normalized()
-        for light in options.get("lights", [])
-    ]
+        ).normalized())
 
     mqtt = _supervisor_mqtt()
     if mqtt:
@@ -114,7 +121,7 @@ def _autodiscover_lights() -> list[LightCfg]:
         lights.append(LightCfg(
             address=pretty or None,
             name=info["name"] or "Litra",
-            model=DEFAULT_MODEL,
+            model=info.get("model", DEFAULT_MODEL),  # from product id, not assumed
         ))
     return lights
 

@@ -12,5 +12,8 @@
 #           sudo udevadm control --reload-rules && sudo udevadm trigger
 # (then unplug/reconnect or re-toggle Bluetooth so the rule re-applies.)
 
+# Beam LX over Bluetooth (B903) and USB (C903); Litra Beam (C901); Glow (C900).
 SUBSYSTEM=="hidraw", KERNELS=="0005:046D:B903.*", GROUP="plugdev", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="hidraw", KERNELS=="0003:046D:C903.*", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNELS=="0003:046D:C901.*", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNELS=="0003:046D:C900.*", GROUP="plugdev", MODE="0660", TAG+="uaccess"

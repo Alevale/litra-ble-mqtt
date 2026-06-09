@@ -293,6 +293,8 @@ class Bridge:
                 except LitraError as e:
                     log.warning("%s command failed: %s", lb.dev.name, e)
                     lb.publish_availability(client, force=True)
+                except Exception as e:  # malformed payload etc. - never die
+                    log.warning("%s: bad command %r: %s", lb.dev.name, payload, e)
                 return
 
     def _presence_loop(self):
@@ -303,19 +305,31 @@ class Bridge:
                     lb.refresh_from_device(self.client)
 
     def run(self):
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(sig, lambda *_: self._stop.set())
+
         if self.cfg.pair_on_start:
             addrs = [lb.dev.address for lb in self.lights if lb.dev.address]
             if addrs:
                 log.info("pairing %d configured light(s)...", len(addrs))
                 pairing.ensure_paired(addrs, scan_seconds=self.cfg.scan_seconds)
 
+        # Retry the initial connect: on a host/HAOS reboot the broker may not be
+        # accepting connections yet. paho only auto-reconnects AFTER the first
+        # successful connect, so we loop here until that first connect lands.
+        self.client.reconnect_delay_set(min_delay=1, max_delay=30)
         log.info("connecting to MQTT %s:%s", self.cfg.mqtt_host, self.cfg.mqtt_port)
-        self.client.connect(self.cfg.mqtt_host, self.cfg.mqtt_port, keepalive=30)
+        while not self._stop.is_set():
+            try:
+                self.client.connect(self.cfg.mqtt_host, self.cfg.mqtt_port, keepalive=30)
+                break
+            except (OSError, ConnectionError) as e:
+                log.warning("broker not reachable (%s); retrying in 5s", e)
+                if self._stop.wait(5):
+                    return
 
         watcher = threading.Thread(target=self._presence_loop, daemon=True)
         watcher.start()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            signal.signal(sig, lambda *_: self._stop.set())
 
         self.client.loop_start()
         self._stop.wait()
