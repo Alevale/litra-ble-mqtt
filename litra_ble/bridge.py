@@ -338,6 +338,12 @@ class Bridge:
         if (self.cfg.pair_on_start or self.cfg.auto_discover) and to_pair:
             log.info("pairing %d light(s)...", len(to_pair))
             pairing.ensure_paired(to_pair, scan_seconds=self.cfg.scan_seconds)
+            # The kernel hidraw node can lag a few seconds behind the bond/
+            # connect, so wait for it to show up before giving up.
+            for _ in range(10):
+                if list_litras():
+                    break
+                time.sleep(1.5)
 
         result: list[LightCfg] = []
         seen: set[str] = set()
@@ -359,6 +365,11 @@ class Bridge:
         for na, lc in configured.items():
             if na not in seen:
                 result.append(lc)
+
+        if not seen and to_pair:
+            # Bonded something but no HID node appeared - show why.
+            log.warning("paired but no HID device showed up. Diagnostics:\n%s",
+                        pairing.diagnostics(to_pair))
         return result
 
     def run(self):

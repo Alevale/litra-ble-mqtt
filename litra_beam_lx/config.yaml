@@ -1,5 +1,5 @@
 name: Litra Beam LX Bridge
-version: "0.3.1"
+version: "0.3.2"
 slug: litra_beam_lx
 description: Control Logitech Litra lights (Beam LX, Beam, Glow) over Bluetooth from Home Assistant
 url: https://github.com/Alevale/litra-ble-mqtt/tree/main/litra_beam_lx

@@ -155,6 +155,39 @@ def pair(address: str, scan_seconds: float = 20.0, attempts: int = 2) -> bool:
     return False
 
 
+def diagnostics(addresses: list[str]) -> str:
+    """Dump what we can see about bonded devices + hidraw, for troubleshooting.
+
+    Used when a light bonds but no HID node appears, to tell apart "device
+    didn't connect the HID service", "host made no hidraw", and "container can't
+    see the host's hidraw".
+    """
+    import glob
+    import os
+
+    lines: list[str] = []
+    for a in addresses:
+        lines.append(f"--- bluetoothctl info {a} ---")
+        for line in _oneshot("info", a).splitlines():
+            if any(k in line for k in ("Paired", "Bonded", "Connected", "Trusted",
+                                       "ServicesResolved", "UUID", "Name")):
+                lines.append("  " + line.strip())
+
+    def ls(path):
+        try:
+            return ", ".join(sorted(os.listdir(path))) or "(empty)"
+        except OSError as e:
+            return f"(error: {e})"
+
+    lines.append("--- /sys/class/hidraw ---")
+    lines.append("  " + ls("/sys/class/hidraw"))
+    lines.append("--- /dev/hidraw* ---")
+    lines.append("  " + (", ".join(sorted(glob.glob("/dev/hidraw*"))) or "(none)"))
+    lines.append("--- /sys/bus/hid/devices ---")
+    lines.append("  " + ls("/sys/bus/hid/devices"))
+    return "\n".join(lines)
+
+
 def scan_for_litras(scan_seconds: float = 8.0) -> list[tuple[str, str]]:
     """Active-scan BLE and return [(address, name), ...] for Litra devices.
 

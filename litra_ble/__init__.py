@@ -10,7 +10,7 @@ from litra_ble.device import (
     list_litras,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 __all__ = [
     "LitraLight",
     "LitraBeamLX",

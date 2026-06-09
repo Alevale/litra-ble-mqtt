@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Wait for the kernel hidraw node to appear after bonding (it can lag a few
+  seconds behind connect) instead of giving up immediately.
+- When a light bonds but no HID device shows up, log diagnostics (bluetoothctl
+  info + hidraw/sys state) to pinpoint the cause.
+
 ## 0.3.1
 
 - More reliable pairing: keep the BLE scan running *through* the pair attempt
