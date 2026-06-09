@@ -1,0 +1,16 @@
+# Give non-root users access to the Logitech Litra Beam LX HID device.
+#
+# Without this, /dev/hidraw* for the Litra is root-only (mode 0600) and the
+# MQTT bridge would need to run as root. These rules grant the `plugdev` group
+# read/write access, and TAG+="uaccess" also grants the locally logged-in user.
+#
+# The kernel names the underlying HID device "<bus>:<VID>:<PID>.<n>":
+#   bus 0005 = Bluetooth LE   (Beam LX advertises product B903)
+#   bus 0003 = USB            (Beam LX enumerates as product C903)
+#
+# Install:  sudo cp 99-litra-ble.rules /etc/udev/rules.d/
+#           sudo udevadm control --reload-rules && sudo udevadm trigger
+# (then unplug/reconnect or re-toggle Bluetooth so the rule re-applies.)
+
+SUBSYSTEM=="hidraw", KERNELS=="0005:046D:B903.*", GROUP="plugdev", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNELS=="0003:046D:C903.*", GROUP="plugdev", MODE="0660", TAG+="uaccess"

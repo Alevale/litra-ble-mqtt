@@ -1,0 +1,27 @@
+# Litra Beam LX -> Home Assistant MQTT bridge.
+#
+# This is a reference unit. `scripts/install.sh` generates a copy with the
+# correct paths and user filled in and installs it to /etc/systemd/system/.
+# If installing by hand, edit User=, the venv path in ExecStart, and make sure
+# /etc/litra-mqtt.env exists (see litra-mqtt.env.example).
+
+[Unit]
+Description=Litra Beam LX -> Home Assistant MQTT bridge
+After=network-online.target bluetooth.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=alex
+EnvironmentFile=/etc/litra-mqtt.env
+ExecStart=/home/alex/projects/ha-logitech-litra-beam-xl/.venv/bin/python -m litra_ble.bridge
+Restart=on-failure
+RestartSec=5
+# Hardening (the bridge only needs the hidraw node and a network socket).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

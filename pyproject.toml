@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "litra-ble-mqtt"
+version = "0.1.0"
+description = "Control a Logitech Litra Beam LX over USB/Bluetooth HID and bridge it to Home Assistant via MQTT"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Alex Vales" }]
+keywords = ["litra", "logitech", "home-assistant", "mqtt", "bluetooth", "hid"]
+dependencies = ["paho-mqtt>=1.6"]
+
+[project.urls]
+Homepage = "https://github.com/alexvales/litra-ble-mqtt"
+Issues = "https://github.com/alexvales/litra-ble-mqtt/issues"
+
+[project.scripts]
+litra = "litra_ble.cli:main"
+litra-mqtt = "litra_ble.bridge:main"
+
+[tool.setuptools]
+packages = ["litra_ble"]
