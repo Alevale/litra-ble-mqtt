@@ -6,4 +6,4 @@ provided by the Supervisor automatically.
 
 See [DOCS.md](DOCS.md) for full setup and configuration.
 
-Part of [litra-ble-mqtt](https://github.com/alexvales/litra-ble-mqtt).
+Part of [litra-ble-mqtt](https://github.com/Alevale/litra-ble-mqtt).

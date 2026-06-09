@@ -14,8 +14,8 @@ keywords = ["litra", "logitech", "home-assistant", "mqtt", "bluetooth", "hid"]
 dependencies = ["paho-mqtt>=1.6,<3"]
 
 [project.urls]
-Homepage = "https://github.com/alexvales/litra-ble-mqtt"
-Issues = "https://github.com/alexvales/litra-ble-mqtt/issues"
+Homepage = "https://github.com/Alevale/litra-ble-mqtt"
+Issues = "https://github.com/Alevale/litra-ble-mqtt/issues"
 
 [project.scripts]
 litra = "litra_ble.cli:main"

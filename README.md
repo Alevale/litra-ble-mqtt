@@ -99,7 +99,7 @@ powered on and in range.
 ### 2. Install the bridge
 
 ```bash
-git clone https://github.com/alexvales/litra-ble-mqtt
+git clone https://github.com/Alevale/litra-ble-mqtt
 cd litra-ble-mqtt
 sudo ./scripts/install.sh
 ```
