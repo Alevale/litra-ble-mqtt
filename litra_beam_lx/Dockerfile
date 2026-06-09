@@ -6,10 +6,14 @@ FROM ${BUILD_FROM}
 # bridge package straight from the source repo.
 RUN apk add --no-cache bluez git
 
-# Install the bridge. Pinned to a ref so rebuilds are reproducible; bump
-# LITRA_REF (or point it at a tag) when releasing a new version.
+# Install the bridge from the repo. BUILD_VERSION (passed by the Supervisor from
+# config.yaml's version) is referenced here so that bumping the add-on version
+# busts this layer's cache and the update actually pulls the new code, instead
+# of reusing a stale cached `pip install` layer.
+ARG BUILD_VERSION
 ARG LITRA_REF=main
-RUN pip install --no-cache-dir \
+RUN echo "building litra-ble-mqtt ${BUILD_VERSION}" && \
+    pip install --no-cache-dir \
         "git+https://github.com/Alevale/litra-ble-mqtt@${LITRA_REF}"
 
 COPY run.sh /
