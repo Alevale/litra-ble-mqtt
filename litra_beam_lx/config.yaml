@@ -1,5 +1,5 @@
 name: Litra Beam LX Bridge
-version: "0.3.2"
+version: "0.3.3"
 slug: litra_beam_lx
 description: Control Logitech Litra lights (Beam LX, Beam, Glow) over Bluetooth from Home Assistant
 url: https://github.com/Alevale/litra-ble-mqtt/tree/main/litra_beam_lx
@@ -15,9 +15,16 @@ init: false
 host_dbus: true
 # See the kernel hidraw nodes the bonded lights create.
 udev: true
-# Raw HID access to /dev/hidraw* (their numbers are dynamic, so we can't map a
-# fixed device list). Requires the add-on's Protection mode to be turned off.
-full_access: true
+# Raw HID access to the lights' /dev/hidraw* nodes, granted per device so
+# Protection mode can stay on (full_access would require turning it off). The
+# number is assigned when a light bonds, so the first few slots are listed: the
+# Supervisor skips paths that don't exist at start and grants access through
+# its hot-plug listener when one appears later (a light reconnecting).
+devices:
+  - /dev/hidraw0
+  - /dev/hidraw1
+  - /dev/hidraw2
+  - /dev/hidraw3
 
 # Ask the Supervisor for the MQTT broker; credentials are injected automatically
 # (no need to type broker user/password as long as an MQTT broker add-on, e.g.

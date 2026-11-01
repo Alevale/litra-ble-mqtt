@@ -58,7 +58,7 @@ that protocol, but only over **USB**. This project reuses the same protocol over
 If Home Assistant runs on a machine with Bluetooth in range of the lights:
 
 1. **Settings → Add-ons → Add-on Store → ⋮ → Repositories**, add this repo's URL.
-2. Install **Litra Beam LX Bridge**, turn **Protection mode off** (Info tab).
+2. Install **Litra Beam LX Bridge**. Protection mode can stay on.
 3. Put each light in pairing mode (Bluetooth button on the back) and **Start** the
    add-on. It auto-discovers and pairs them — **no addresses to type** — and they
    appear in Home Assistant automatically, model detected per light. MQTT

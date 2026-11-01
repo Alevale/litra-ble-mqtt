@@ -20,6 +20,7 @@ it wakes from sleep, so we only ever need to pair once.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import threading
 import time
@@ -27,6 +28,14 @@ import time
 log = logging.getLogger("litra-mqtt.pairing")
 
 BCTL = "bluetoothctl"
+
+# Addresses end up as text on bluetoothctl's interactive stdin, so anything that
+# isn't a plain MAC (a stray newline in an option, say) could inject commands.
+_MAC_RE = re.compile(r"^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$")
+
+
+def valid_address(address: str | None) -> bool:
+    return bool(address) and _MAC_RE.fullmatch(address.upper()) is not None
 
 
 def _oneshot(*args: str, timeout: float = 15) -> str:
@@ -120,6 +129,10 @@ def pair(address: str, scan_seconds: float = 20.0, attempts: int = 2) -> bool:
     is flaky. On failure the bluetoothctl transcript is logged so the cause
     (AuthenticationFailed, agent issue, out of range, ...) is visible.
     """
+    if not valid_address(address):
+        log.warning("refusing to pair %r: not a Bluetooth MAC address", address)
+        return False
+    address = address.upper()
     power_on()
 
     if is_paired(address):
@@ -205,7 +218,8 @@ def scan_for_litras(scan_seconds: float = 8.0) -> list[tuple[str, str]]:
     found: dict[str, str] = {}
     for line in _oneshot("devices").splitlines():
         parts = line.strip().split(" ", 2)
-        if len(parts) == 3 and parts[0] == "Device" and "litra" in parts[2].lower():
+        if (len(parts) == 3 and parts[0] == "Device" and valid_address(parts[1])
+                and parts[2].lower().startswith("litra")):
             found[parts[1].upper()] = parts[2]
     return list(found.items())
 
