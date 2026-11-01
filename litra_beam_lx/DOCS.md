@@ -16,8 +16,9 @@ to be within Bluetooth range of the lights.
   do **not** type them anywhere.
 - Bluetooth available on the host. The Pi's built-in Bluetooth works; for several
   lights or long range, a dedicated USB Bluetooth dongle is more reliable.
-- **Protection mode OFF** for this add-on (Info tab → toggle off). It needs raw
-  HID device access, which protected add-ons aren't allowed.
+- Protection mode can stay **on**. The add-on is granted `/dev/hidraw0` to
+  `/dev/hidraw3` individually; a light that connects after the add-on started
+  is granted through the Supervisor's hot-plug listener.
 
 ## Setup — the easy way (auto-discovery)
 

@@ -112,17 +112,36 @@ def list_litras() -> list[dict]:
         hid_id = (_uevent_field(uevent, "HID_ID") or "").upper()
         if f"{VENDOR_ID:08X}" not in hid_id and f"{VENDOR_ID:04X}" not in hid_id:
             continue
-        if not any(f"{pid:04X}" in hid_id for pid in PRODUCT_IDS):
-            continue
+        hid_name = _uevent_field(uevent, "HID_NAME") or ""
         product = next((pid for pid in PRODUCT_IDS if f"{pid:04X}" in hid_id), 0)
+        # Unknown product ids (e.g. a plain Beam over Bluetooth) are accepted when
+        # the kernel name says Litra, with the model read from that name. Falling
+        # back to DEFAULT_MODEL instead would drive a Beam with the Beam LX feature
+        # index, and an unknown name is skipped rather than guessed.
+        model = PRODUCT_PROFILES.get(product) or _model_from_name(hid_name)
+        if model is None:
+            continue
         found.append({
             "path": f"/dev/{name}",
             "address": _norm_addr(_uevent_field(uevent, "HID_UNIQ")) or "",
             "product": product,
-            "model": PRODUCT_PROFILES.get(product, DEFAULT_MODEL),
-            "name": _uevent_field(uevent, "HID_NAME") or "Litra",
+            "model": model,
+            "name": hid_name or "Litra",
         })
     return found
+
+
+def _model_from_name(hid_name: str) -> str | None:
+    low = hid_name.lower()
+    if "litra" not in low:
+        return None
+    if "beam lx" in low:
+        return "beam_lx"
+    if "beam" in low:
+        return "beam"
+    if "glow" in low:
+        return "glow"
+    return None
 
 
 class LitraLight:
@@ -265,7 +284,9 @@ class LitraLight:
         self.front_brightness_lumen(round(LUMEN_MIN + (LUMEN_MAX - LUMEN_MIN) * pct / 100))
 
     def front_temperature(self, kelvin: int) -> None:
-        k = _clamp(int(kelvin), TEMP_MIN, TEMP_MAX)
+        # The light ignores values that aren't a multiple of 100 K, and Home
+        # Assistant's mired round-trip produces exactly those (2702, 6494, ...).
+        k = _clamp(round(int(kelvin) / 100) * 100, TEMP_MIN, TEMP_MAX)
         self._write(0x11, 0xFF, self._front, 0x9C, (k >> 8) & 0xFF, k & 0xFF)
 
     def get_front_power(self) -> bool | None:

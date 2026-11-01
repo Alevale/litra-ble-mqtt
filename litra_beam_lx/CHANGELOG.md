@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.3
+
+- A plain Litra Beam over Bluetooth works. Its Bluetooth product id isn't in
+  the table, so it was either skipped or driven with the Beam LX feature index;
+  unknown ids are now matched by the kernel HID name (`Litra Beam`, `Litra Beam
+  LX`, `Litra Glow`) and anything else is skipped instead of guessed.
+- Colour temperature is rounded to the nearest 100 K. The light ignores other
+  values, and Home Assistant's mired conversion produces them (2702 K, 6494 K).
+- Protection mode can stay on: `full_access` is replaced by a per-device grant
+  for `/dev/hidraw0`-`/dev/hidraw3`.
+- Bluetooth addresses are validated as MAC addresses before they are written to
+  the interactive `bluetoothctl` session, and auto-discovery only accepts
+  devices whose name starts with `Litra`.
+
 ## 0.3.2
 
 - Wait for the kernel hidraw node to appear after bonding (it can lag a few
